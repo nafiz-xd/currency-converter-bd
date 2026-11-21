@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Currency Converter BD — Live BDT Exchange Rates</title>
+<meta name="description" content="Live currency converter to and from Bangladeshi Taka (BDT), with remittance estimates, offline fallback and a 7-day USD to BDT trend chart.">
+<style>
+  :root{
+    --accent:#0f766e;
+    --accent-dark:#115e59;
+    --accent-soft:#e6f4f2;
+    --bg:#f4f8f7;
+    --card:#ffffff;
+    --text:#12211f;
+    --muted:#5b6b68;
+    --border:#e3ebe9;
+    --amber-bg:#fffbeb;
+    --amber-border:#fde68a;
+    --amber-text:#92400e;
+    --radius:20px;
+    --shadow:0 12px 32px rgba(15,118,110,.09), 0 2px 6px rgba(18,33,31,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:linear-gradient(180deg,#e9f5f2 0,#f4f8f7 260px);
+    color:var(--text);
+    min-height:100vh;
+    padding:28px 16px 40px;
+  }
+  .wrap{max-width:560px;margin:0 auto;}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+  .logo{
+    width:52px;height:52px;flex:0 0 52px;border-radius:15px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 18px rgba(15,118,110,.30);
+  }
+  .logo svg{width:28px;height:28px;}
+  header h1{font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.15;}
+  header p{font-size:13.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:24px;margin-bottom:18px;
+  }
+  .card h2{font-size:16px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px;}
+  .card .sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px;}
+
+  label.field-label{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+
+  #amount{
+    width:100%;font-size:30px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;
+    border:1.5px solid var(--border);border-radius:14px;
+    padding:13px 16px;background:#fbfdfe;outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  #amount:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(15,118,110,.13);}
+
+  .pair{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);gap:10px;align-items:end;margin-top:18px;}
+  select{
+    width:100%;font-size:15px;font-weight:600;color:var(--text);
+    border:1.5px solid var(--border);border-radius:12px;padding:12px 10px;
+    background:#fff;outline:none;cursor:pointer;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(15,118,110,.13);}
+  #swapBtn{
+    width:48px;height:48px;border:none;border-radius:50%;cursor:pointer;
+    background:var(--accent);color:#fff;font-size:21px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 14px rgba(15,118,110,.32);
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1), background .15s;
+  }
+  #swapBtn:hover{background:var(--accent-dark);}
+  #swapBtn:active{transform:scale(.93);}
+  #swapBtn.spun{transform:rotate(180deg);}
+
+  .result-box{
+    margin-top:22px;background:var(--accent-soft);border-radius:16px;padding:18px 20px 15px;
+  }
+  .result-label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-dark);}
+  .result-line{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:4px;}
+  #resultValue{
+    font-size:clamp(38px,10vw,54px);font-weight:800;letter-spacing:-.02em;
+    color:var(--accent-dark);font-variant-numeric:tabular-nums;line-height:1.05;
+  }
+  #resultCode{font-size:20px;font-weight:700;color:var(--accent);}
+  #rateLine{font-size:13.5px;color:var(--muted);margin-top:9px;font-variant-numeric:tabular-nums;}
+
+  .status-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-4px 2px 14px;}
+  #lastUpdated{font-size:12.5px;color:var(--muted);}
+  #offlineBanner{
+    display:none;width:100%;
+    background:var(--amber-bg);border:1px solid var(--amber-border);color:var(--amber-text);
+    font-size:13px;line-height:1.5;border-radius:12px;padding:10px 14px;
+  }
+  #loadError{
+    display:none;width:100%;
+    background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+    font-size:13px;line-height:1.5;border-radius:12px;padding:10px 14px;
+  }
+
+  /* ---------- toggle switch ---------- */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .toggle-row .t-text h2{margin-bottom:2px;}
+  .toggle-row .t-text p{font-size:13px;color:var(--muted);line-height:1.45;}
+  .switch{position:relative;flex:0 0 54px;width:54px;height:30px;}
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .slider{
+    position:absolute;inset:0;border-radius:999px;background:#cbd5d1;cursor:pointer;
+    transition:background .2s;
+  }
+  .slider::before{
+    content:"";position:absolute;width:24px;height:24px;border-radius:50%;
+    background:#fff;top:3px;left:3px;box-shadow:0 2px 5px rgba(0,0,0,.22);
+    transition:transform .2s;
+  }
+  .switch input:checked + .slider{background:var(--accent);}
+  .switch input:checked + .slider::before{transform:translateX(24px);}
+  .switch input:focus-visible + .slider{box-shadow:0 0 0 4px rgba(15,118,110,.25);}
+
+  #remitSection{display:none;margin-top:18px;border-top:1px dashed var(--border);padding-top:18px;}
+  .remit-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+  #remitAmount{
+    width:100%;font-size:19px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;
+    border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;
+    background:#fbfdfe;outline:none;
+  }
+  #remitAmount:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(15,118,110,.13);}
+  .remit-result{margin-top:16px;font-size:14px;color:var(--muted);}
+  .remit-result strong{
+    display:block;font-size:32px;font-weight:800;color:var(--accent-dark);
+    font-variant-numeric:tabular-nums;letter-spacing:-.01em;margin-top:2px;
+  }
+  .remit-result strong span{font-size:16px;color:var(--accent);font-weight:700;}
+  #remitNote{
+    margin-top:14px;font-size:12.5px;line-height:1.55;color:var(--amber-text);
+    background:var(--amber-bg);border:1px solid var(--amber-border);
+    border-radius:10px;padding:9px 12px;
+  }
+
+  /* ---------- chart ---------- */
+  #trendChart{width:100%;height:150px;display:none;}
+  #trendNote{
+    font-size:13.5px;color:var(--muted);line-height:1.55;
+    background:#fbfdfe;border:1px dashed var(--border);border-radius:12px;padding:14px 16px;
+  }
+  .chart-caption{font-size:12px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums;}
+
+  footer{text-align:center;font-size:13px;color:var(--muted);margin-top:26px;line-height:1.6;}
+  footer strong{color:var(--accent-dark);}
+
+  @media (max-width:420px){
+    body{padding:20px 12px 32px;}
+    .card{padding:19px 16px;}
+    header h1{font-size:20px;}
+    .remit-grid{grid-template-columns:minmax(0,1fr);}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h13"/><path d="M13.5 3.5 17 7l-3.5 3.5"/>
+        <path d="M20 17H7"/><path d="M10.5 13.5 7 17l3.5 3.5"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Currency Converter BD</h1>
+      <p>Live exchange rates to &amp; from Bangladeshi Taka (BDT)</p>
+    </div>
+  </header>
+
+  <div class="status-row">
+    <div id="offlineBanner" role="status"></div>
+    <div id="loadError" role="alert"></div>
+    <div id="lastUpdated">Loading latest rates…</div>
+  </div>
+
+  <!-- Converter -->
+  <section class="card" aria-label="Currency converter">
+    <label class="field-label" for="amount">Amount</label>
+    <input id="amount" type="number" inputmode="decimal" min="0" step="any" value="100" autocomplete="off">
+
+    <div class="pair">
+      <div>
+        <label class="field-label" for="fromCurrency">From</label>
+        <select id="fromCurrency"></select>
+      </div>
+      <button id="swapBtn" type="button" title="Swap currencies" aria-label="Swap currencies">&#8645;</button>
+      <div>
+        <label class="field-label" for="toCurrency">To</label>
+        <select id="toCurrency"></select>
+      </div>
+    </div>
+
+    <div class="result-box">
+      <div class="result-label">Converted amount</div>
+      <div class="result-line">
+        <span id="resultValue">0.00</span><span id="resultCode">BDT</span>
+      </div>
+      <p id="rateLine">Fetching rates…</p>
+    </div>
+  </section>
+
+  <!-- Remittance -->
+  <section class="card" aria-label="Remittance mode">
+    <div class="toggle-row">
+      <div class="t-text">
+        <h2>Remittance mode</h2>
+        <p>Money sent home to Bangladesh — see how much arrives in Taka.</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="remitToggle" aria-label="Toggle remittance mode">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div id="remitSection">
+      <div class="remit-grid">
+        <div>
+          <label class="field-label" for="remitAmount">Amount sent</label>
+          <input id="remitAmount" type="number" inputmode="decimal" min="0" step="any" value="1000" autocomplete="off">
+        </div>
+        <div>
+          <label class="field-label" for="remitCurrency">Sent in</label>
+          <select id="remitCurrency"></select>
+        </div>
+      </div>
+      <div class="remit-result">
+        Your family receives approximately
+        <strong><span id="remitResult">0.00</span> <span>BDT</span></strong>
+      </div>
+      <p id="remitNote">Please note: this uses the mid-market rate. The amount actually received will usually be a bit lower, because banks, bKash and money-transfer agents apply their own rates, fees and margins, which differ from the rate shown here.</p>
+    </div>
+  </section>
+
+  <!-- Trend -->
+  <section class="card" aria-label="USD to BDT trend">
+    <h2>USD &rarr; BDT trend</h2>
+    <p class="sub">Built from the rates saved on this device each day you visit.</p>
+    <canvas id="trendChart" height="150"></canvas>
+    <p id="trendNote">Your trend chart builds up as you visit on different days — each day&rsquo;s USD&rarr;BDT rate is saved on this device, and the chart appears once at least two days are recorded. No data is invented in the meantime.</p>
+    <p class="chart-caption" id="chartCaption"></p>
+  </section>
+
+  <footer>
+    Rates: ExchangeRate-API (open endpoint), mid-market, for guidance only.<br>
+    Built by <strong>Nafiz Bin Azad</strong>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var API_URL = "https://open.er-api.com/v6/latest/USD";
+  var CACHE_KEY = "ccbd_cache";
+  var SNAPS_KEY = "ccbd_snaps";
+
+  var CURRENCIES = [
+    {code:"BDT", name:"Bangladeshi Taka"},
+    {code:"USD", name:"US Dollar"},
+    {code:"EUR", name:"Euro"},
+    {code:"GBP", name:"British Pound"},
+    {code:"INR", name:"Indian Rupee"},
+    {code:"SAR", name:"Saudi Riyal"},
+    {code:"AED", name:"UAE Dirham"},
+    {code:"MYR", name:"Malaysian Ringgit"},
+    {code:"SGD", name:"Singapore Dollar"},
+    {code:"KWD", name:"Kuwaiti Dinar"},
+    {code:"QAR", name:"Qatari Riyal"},
+    {code:"CAD", name:"Canadian Dollar"},
+    {code:"AUD", name:"Australian Dollar"},
+    {code:"JPY", name:"Japanese Yen"},
+    {code:"CNY", name:"Chinese Yuan"}
+  ];
+
+  var rates = null;
+
+  var amountEl = document.getElementById("amount");
+  var fromEl = document.getElementById("fromCurrency");
+  var toEl = document.getElementById("toCurrency");
+  var swapBtn = document.getElementById("swapBtn");
+  var resultValueEl = document.getElementById("resultValue");
+  var resultCodeEl = document.getElementById("resultCode");
+  var rateLineEl = document.getElementById("rateLine");
+  var lastUpdatedEl = document.getElementById("lastUpdated");
+  var offlineBannerEl = document.getElementById("offlineBanner");
+  var loadErrorEl = document.getElementById("loadError");
+  var remitToggleEl = document.getElementById("remitToggle");
+  var remitSectionEl = document.getElementById("remitSection");
+  var remitAmountEl = document.getElementById("remitAmount");
+  var remitCurrencyEl = document.getElementById("remitCurrency");
+  var remitResultEl = document.getElementById("remitResult");
+  var chartEl = document.getElementById("trendChart");
+  var trendNoteEl = document.getElementById("trendNote");
+  var chartCaptionEl = document.getElementById("chartCaption");
+
+  function fillSelect(sel, includeBDT){
+    CURRENCIES.forEach(function(c){
+      if(!includeBDT && c.code === "BDT") return;
+      var opt = document.createElement("option");
+      opt.value = c.code;
+      opt.textContent = c.code + " — " + c.name;
+      sel.appendChild(opt);
+    });
+  }
+  fillSelect(fromEl, true);
+  fillSelect(toEl, true);
+  fillSelect(remitCurrencyEl, false);
+  fromEl.value = "USD";
+  toEl.value = "BDT";
+  remitCurrencyEl.value = "SAR";
+
+  function fmt(n){
+    return n.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* Animated number tween: counts from the old displayed value to the new one.
+     Timer-driven (not rAF) so it always lands exactly on the final value,
+     even in throttled or headless rendering contexts. */
+  function makeTween(el){
+    var current = 0, timer = null;
+    return function(target){
+      if(timer){ clearInterval(timer); timer = null; }
+      if(reduceMotion || !isFinite(target)){
+        el.textContent = fmt(isFinite(target) ? target : 0);
+        current = target;
+        return;
+      }
+      var from = current, start = Date.now(), dur = 450;
+      current = target;
+      el.textContent = fmt(from);
+      timer = setInterval(function(){
+        var p = Math.min(1, (Date.now() - start) / dur);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = fmt(from + (target - from) * eased);
+        if(p >= 1){ clearInterval(timer); timer = null; el.textContent = fmt(target); }
+      }, 16);
+    };
+  }
+  var tweenResult = makeTween(resultValueEl);
+  var tweenRemit = makeTween(remitResultEl);
+
+  function convertValue(amount, from, to){
+    if(!rates || !rates[from] || !rates[to]) return null;
+    return amount * (rates[to] / rates[from]);
+  }
+
+  function convert(){
+    var amount = parseFloat(amountEl.value);
+    if(isNaN(amount) || amount < 0) amount = 0;
+    var from = fromEl.value, to = toEl.value;
+    resultCodeEl.textContent = to;
+    var out = convertValue(amount, from, to);
+    if(out === null){
+      resultValueEl.textContent = "—";
+      rateLineEl.textContent = rates ? "Rate unavailable for this pair." : "Rates not loaded yet.";
+      return;
+    }
+    tweenResult(out);
+    var unit = rates[to] / rates[from];
+    rateLineEl.textContent = "1 " + from + " = " + fmt(unit) + " " + to +
+      "  ·  " + fmt(amount) + " " + from + " = " + fmt(out) + " " + to;
+  }
+
+  function computeRemit(){
+    var amount = parseFloat(remitAmountEl.value);
+    if(isNaN(amount) || amount < 0) amount = 0;
+    var out = convertValue(amount, remitCurrencyEl.value, "BDT");
+    if(out === null){ remitResultEl.textContent = "—"; return; }
+    tweenRemit(out);
+  }
+
+  /* ---------- storage ---------- */
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function saveCache(apiUpdated){
+    try{
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        rates: rates,
+        fetchedAt: Date.now(),
+        apiUpdated: apiUpdated || null
+      }));
+    }catch(e){ /* storage unavailable — app still works for this session */ }
+  }
+  function loadCache(){
+    try{
+      var raw = localStorage.getItem(CACHE_KEY);
+      if(!raw) return null;
+      var c = JSON.parse(raw);
+      if(c && c.rates && c.rates.BDT && c.rates.USD) return c;
+    }catch(e){}
+    return null;
+  }
+  function saveSnapshot(){
+    try{
+      var snaps = {};
+      var raw = localStorage.getItem(SNAPS_KEY);
+      if(raw) snaps = JSON.parse(raw) || {};
+      snaps[todayKey()] = { USD: rates.USD, BDT: rates.BDT };
+      var keys = Object.keys(snaps).sort();
+      while(keys.length > 30){ delete snaps[keys.shift()]; }
+      localStorage.setItem(SNAPS_KEY, JSON.stringify(snaps));
+    }catch(e){}
+  }
+  function loadSnaps(){
+    try{
+      var raw = localStorage.getItem(SNAPS_KEY);
+      if(raw){
+        var s = JSON.parse(raw);
+        if(s && typeof s === "object") return s;
+      }
+    }catch(e){}
+    return {};
+  }
+
+  /* ---------- trend chart ---------- */
+  function drawChart(){
+    var snaps = loadSnaps();
+    var dates = Object.keys(snaps).sort().slice(-7);
+    var points = [];
+    dates.forEach(function(d){
+      var s = snaps[d];
+      if(s && s.USD && s.BDT) points.push({date:d, value: s.BDT / s.USD});
+    });
+
+    if(points.length < 2){
+      chartEl.style.display = "none";
+      trendNoteEl.style.display = "block";
+      chartCaptionEl.textContent = points.length === 1
+        ? "1 day recorded so far (" + points[0].date + ": 1 USD = " + fmt(points[0].value) + " BDT). Visit again on another day to start the chart."
+        : "";
+      return;
+    }
+    trendNoteEl.style.display = "none";
+    chartEl.style.display = "block";
+
+    var dpr = window.devicePixelRatio || 1;
+    var w = chartEl.clientWidth || 320, h = 150;
+    chartEl.width = w * dpr; chartEl.height = h * dpr;
+    var ctx = chartEl.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    var values = points.map(function(p){ return p.value; });
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    if(max - min < 0.5){ var mid = (max + min) / 2; min = mid - 0.25; max = mid + 0.25; }
+    var pad = (max - min) * 0.25; min -= pad; max += pad;
+
+    var left = 6, right = 6, top = 16, bottom = 26;
+    var iw = w - left - right, ih = h - top - bottom;
+    function X(i){ return left + (points.length === 1 ? iw/2 : (i / (points.length - 1)) * iw); }
+    function Y(v){ return top + (1 - (v - min) / (max - min)) * ih; }
+
+    /* gridlines */
+    ctx.strokeStyle = "#e3ebe9"; ctx.lineWidth = 1;
+    [0, 0.5, 1].forEach(function(f){
+      var y = top + f * ih;
+      ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(w - right, y); ctx.stroke();
+    });
+
+    /* area fill */
+    var grad = ctx.createLinearGradient(0, top, 0, h - bottom);
+    grad.addColorStop(0, "rgba(15,118,110,0.22)");
+    grad.addColorStop(1, "rgba(15,118,110,0.02)");
+    ctx.beginPath();
+    points.forEach(function(p, i){ i === 0 ? ctx.moveTo(X(i), Y(p.value)) : ctx.lineTo(X(i), Y(p.value)); });
+    ctx.lineTo(X(points.length - 1), h - bottom); ctx.lineTo(X(0), h - bottom); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    /* line */
+    ctx.beginPath();
+    points.forEach(function(p, i){ i === 0 ? ctx.moveTo(X(i), Y(p.value)) : ctx.lineTo(X(i), Y(p.value)); });
+    ctx.strokeStyle = "#0f766e"; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
+
+    /* points + labels */
+    ctx.font = "11px system-ui, sans-serif";
+    points.forEach(function(p, i){
+      ctx.beginPath(); ctx.arc(X(i), Y(p.value), 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.fill();
+      ctx.strokeStyle = "#0f766e"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#5b6b68"; ctx.textAlign = "center";
+      ctx.fillText(p.date.slice(5), X(i), h - 8);
+    });
+    ctx.fillStyle = "#115e59"; ctx.textAlign = "left"; ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText(fmt(max - pad) + "", left, 11);
+    ctx.textAlign = "right";
+    ctx.fillText(fmt(min + pad) + "", w - right, 11);
+
+    var first = points[0], last = points[points.length - 1];
+    chartCaptionEl.textContent = points.length + " days · " + first.date + ": 1 USD = " + fmt(first.value) +
+      " BDT · " + last.date + ": 1 USD = " + fmt(last.value) + " BDT";
+  }
+
+  /* ---------- status ---------- */
+  function setLastUpdated(apiUpdated){
+    lastUpdatedEl.textContent = apiUpdated ? ("Last updated: " + apiUpdated) : "Last updated: unknown";
+  }
+  function showOffline(fetchedAt){
+    var when = fetchedAt ? new Date(fetchedAt).toLocaleString() : "an earlier visit";
+    offlineBannerEl.textContent = "Offline — showing last saved rates from " + when + ".";
+    offlineBannerEl.style.display = "block";
+  }
+
+  /* ---------- events ---------- */
+  amountEl.addEventListener("input", convert);
+  fromEl.addEventListener("change", convert);
+  toEl.addEventListener("change", convert);
+  swapBtn.addEventListener("click", function(){
+    var t = fromEl.value; fromEl.value = toEl.value; toEl.value = t;
+    swapBtn.classList.toggle("spun");
+    convert();
+  });
+  remitToggleEl.addEventListener("change", function(){
+    remitSectionEl.style.display = remitToggleEl.checked ? "block" : "none";
+    if(remitToggleEl.checked) computeRemit();
+  });
+  remitAmountEl.addEventListener("input", computeRemit);
+  remitCurrencyEl.addEventListener("change", computeRemit);
+  window.addEventListener("resize", drawChart);
+
+  /* ---------- init ---------- */
+  function finishInit(){
+    document.body.dataset.ratesLoaded = "1";
+    convert();
+    computeRemit();
+    drawChart();
+  }
+
+  function init(){
+    fetch(API_URL)
+      .then(function(res){
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function(data){
+        if(!data || !data.rates || !data.rates.BDT || !data.rates.USD) throw new Error("Unexpected API response");
+        rates = data.rates;
+        saveCache(data.time_last_update_utc);
+        saveSnapshot();
+        setLastUpdated(data.time_last_update_utc);
+        finishInit();
+      })
+      .catch(function(){
+        var cache = loadCache();
+        if(cache){
+          rates = cache.rates;
+          showOffline(cache.fetchedAt);
+          setLastUpdated(cache.apiUpdated);
+        } else {
+          loadErrorEl.textContent = "Could not load exchange rates and no saved rates were found on this device. Check your connection and reload the page.";
+          loadErrorEl.style.display = "block";
+          lastUpdatedEl.textContent = "Rates unavailable.";
+        }
+        finishInit();
+      });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
